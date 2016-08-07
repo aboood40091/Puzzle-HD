@@ -2429,22 +2429,21 @@ class MainWindow(QtWidgets.QMainWindow):
         painter.end()
 
         # Make mipmaps
-        numMips = 7 if isDxt5 else 1
+        numMips = 12 if isDxt5 else 1
         mipmaps = []
         for i in range(numMips):
             mipmaps.append(QtGui.QImage(tex).scaledToWidth(2048 >> i, Qt.SmoothTransformation))
 
         if isDxt5:
             # Convert mipmaps to DDS
-            # Replace this with actual code, please!!
+            if not os.path.isdir('DDSConv'):
+                os.makedirs('DDSConv')
+
             for i, tex in enumerate(mipmaps):
                 tex.save('DDSConv/mipmap%s_%d.png' % ('_nml' if normalmap else '', i))
-            QtWidgets.QMessageBox.information(self, 'Action Required', 'Please open each PNG image in the DDSConv folder and convert '
-                                                                    'them to DDS. Use the DXT5 texel format, and do not include '
-                                                                    'mipmaps in the files. Hit the "OK" button when you are done.'
-                                                                    + ('' if not normalmap else '<br><br><b>Note: There are more '
-                                                                        'images in the folder this time! Please convert the new images.'
-                                                                        '</b>'))
+                print('')
+                os.system(('nvdxt.exe -file DDSConv/mipmap%s_%d.png' % ('_nml' if normalmap else '', i)) + (' -nomipmap -dxt5 -output DDSConv/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i)))
+
             ddsmipmaps = []
             for i in range(numMips):
                 with open('DDSConv/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i), 'rb') as f:
@@ -2454,6 +2453,10 @@ class MainWindow(QtWidgets.QMainWindow):
             texmipmaps = []
             for dds in ddsmipmaps:
                 texmipmaps.append(dds[0x80:])
+
+            for filename in os.listdir('DDSConv'):
+                os.remove(os.path.join('DDSConv', filename))
+            import shutil; shutil.rmtree('DDSConv')
         else:
             # Convert mipmaps to RGBA8
             texmipmaps = []
