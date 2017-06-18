@@ -5,7 +5,6 @@
 # Puzzle 0.6 by Tempus; all improvements for Python 3, PyQt5 and NSMBU by RoadrunnerWMC
 
 import SARC
-import gtx
 import os
 import os.path
 import struct
@@ -21,6 +20,8 @@ try:
     HaveNSMBLib = True
 except ImportError:
     HaveNSMBLib = False
+
+import gtx_extract as gtx
 
 
 ########################################################
@@ -40,6 +41,8 @@ except ImportError:
 
 Tileset = None
 
+curr_path = os.path.dirname(os.path.realpath(sys.argv[0])).replace("\\", "/")
+
 #############################################################################################
 ########################## Tileset Class and Tile/Object Subclasses #########################
 
@@ -48,11 +51,10 @@ class TilesetClass():
     Methods: addTile, removeTile, addObject, removeObject, clear'''
 
     class Tile():
-        def __init__(self, image, noalpha, nml, bytelist):
+        def __init__(self, image, nml, bytelist):
             '''Tile Constructor'''
 
             self.image = image
-            self.noalpha = noalpha
             self.normalmap = nml
             self.byte0 = bytelist[0]
             self.byte1 = bytelist[1]
@@ -103,10 +105,10 @@ class TilesetClass():
         self.slot = 0
 
 
-    def addTile(self, image, noalpha, nml, bytelist = (0, 0, 0, 0, 0, 0, 0, 0)):
+    def addTile(self, image, nml, bytelist = (0, 0, 0, 0, 0, 0, 0, 0)):
         '''Adds an tile class to the tile list with the passed image or parameters'''
 
-        self.tiles.append(self.Tile(image, noalpha, nml, bytelist))
+        self.tiles.append(self.Tile(image, nml, bytelist))
 
 
     def addObject(self, height = 1, width = 1, randByte = 0, uslope = [0, 0], lslope = [0, 0], tilelist = [[(0, 0, 0)]]):
@@ -130,12 +132,6 @@ class TilesetClass():
         '''Clears the tileset for a new file'''
 
         self.tiles = []
-        self.objects = []
-
-
-    def clearObjects(self):
-        '''Clears the object data'''
-
         self.objects = []
 
 
@@ -1040,7 +1036,7 @@ class tileOverlord(QtWidgets.QWidget):
         self.removeColumn = QtWidgets.QPushButton('-')
 
         self.tilingMethod = QtWidgets.QComboBox()
-        self.tilesetType = QtWidgets.QLabel('Pa0')
+        self.tilesetType = QtWidgets.QLabel('Pa' + str(Tileset.slot))
 
         self.tilingMethod.addItems(['Repeat',
                                     'Stretch Center',
@@ -1995,7 +1991,6 @@ class MainWindow(QtWidgets.QMainWindow):
         super(MainWindow, self).__init__(parent)
 
         self.tileImage = QtGui.QPixmap()
-        self.noalpha = False
         self.normalmap = False
 
         global Tileset
@@ -2022,9 +2017,6 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.normalmap:
             for tile in Tileset.tiles:
                 self.model.addPieces(tile.normalmap)
-        elif self.noalpha:
-            for tile in Tileset.tiles:
-                self.model.addPieces(tile.noalpha)
         else:
             for tile in Tileset.tiles:
                 self.model.addPieces(tile.image)
@@ -2041,7 +2033,7 @@ class MainWindow(QtWidgets.QMainWindow):
         EmptyPix.fill(Qt.black)
 
         for i in range(256):
-            Tileset.addTile(EmptyPix, EmptyPix, EmptyPix)
+            Tileset.addTile(EmptyPix, EmptyPix)
 
         self.setuptile()
         self.setWindowTitle('New Tileset')
@@ -2097,16 +2089,13 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(None, 'Error',  'Error - the necessary files were not found.\n\nNot a valid tileset, sadly.')
             return
 
-        # Stolen from Reggie! Loads the Image Data.
+        # Stolen from Miyamoto! Loads the Image Data.
         print('Rendering main image...')
-        dest = gtx.renderGTX(gtx.loadGTX(Image))
-        print('Rendering main image (no alpha)...')
-        destnoalpha = gtx.renderGTX(gtx.loadGTX(Image), True)
-        print('Rendering normal map (no alpha)...')
-        destnml = gtx.renderGTX(gtx.loadGTX(NmlMap), True) # why would there be alpha in a normal map??
+        dest = self.LoadTexture_NSMBU(Image)
+        print('Rendering normal map...')
+        destnml = self.LoadTexture_NSMBU(NmlMap)
 
         self.tileImage = QtGui.QPixmap.fromImage(dest)
-        self.noalphaImage = QtGui.QPixmap.fromImage(destnoalpha)
         self.nmlImage = QtGui.QPixmap.fromImage(destnml)
 
         # Loads Tile Behaviours
@@ -2122,7 +2111,6 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(256):
             Tileset.addTile(
                 self.tileImage.copy(Xoffset,Yoffset,60,60),
-                self.noalphaImage.copy(Xoffset,Yoffset,60,60),
                 self.nmlImage.copy(Xoffset,Yoffset,60,60),
                 behaviours[i])
             Xoffset += 64
@@ -2223,7 +2211,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     Tileset.tiles[i].normalmap = self.tileImage.copy(x*60,y*60,60,60)
                 else:
                     Tileset.tiles[i].image = self.tileImage.copy(x*60,y*60,60,60)
-                    Tileset.tiles[i].noalpha = Tileset.tiles[i].image
                 x += 1
                 if (x * 60) >= 960:
                     y += 1
@@ -2240,7 +2227,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setuptile()
 
 
-    def saveImage(self, nml=False, noalpha=False):
+    def saveImage(self, nml=False):
 
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
         if fn == '': return
@@ -2256,8 +2243,6 @@ class MainWindow(QtWidgets.QMainWindow):
             tileimg = tile.image
             if nml:
                 tileimg = tile.normalmap
-            elif noalpha:
-                tileimg = tile.noalpha
             painter.drawPixmap(Xoffset, Yoffset, tileimg)
             Xoffset += 60
             if Xoffset >= 960:
@@ -2275,10 +2260,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def saveNml(self):
         self.saveImage(True)
-
-
-    def saveImageNoAlpha(self):
-        self.saveImage(False, True)
 
 
     def saveTileset(self):
@@ -2436,27 +2417,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if isDxt5:
             # Convert mipmaps to DDS
-            if not os.path.isdir('DDSConv'):
-                os.makedirs('DDSConv')
 
             for i, tex in enumerate(mipmaps):
-                tex.save('DDSConv/mipmap%s_%d.png' % ('_nml' if normalmap else '', i))
-                print('')
-                os.system(('nvdxt.exe -file DDSConv/mipmap%s_%d.png' % ('_nml' if normalmap else '', i)) + (' -nomipmap -dxt5 -output DDSConv/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i)))
+                tex.save(curr_path + '/mipmap%s_%d.png' % ('_nml' if normalmap else '', i))
+                os.chdir(curr_path + '')
+                os.system('nvcompress.exe -bc3 -nomips mipmap%s_%d.png ' % ('_nml' if normalmap else '', i)
+                          + 'mipmap%s_%d.dds' % ('_nml' if normalmap else '', i))
+                os.chdir(curr_path)
 
             ddsmipmaps = []
             for i in range(numMips):
-                with open('DDSConv/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i), 'rb') as f:
+                with open(curr_path + '/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i), 'rb') as f:
                     ddsmipmaps.append(f.read())
+                os.remove(curr_path + '/mipmap%s_%d.png' % ('_nml' if normalmap else '', i))
+                os.remove(curr_path + '/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i))
 
             # Grab the textures from the DDSs
             texmipmaps = []
             for dds in ddsmipmaps:
                 texmipmaps.append(dds[0x80:])
-
-            for filename in os.listdir('DDSConv'):
-                os.remove(os.path.join('DDSConv', filename))
-            import shutil; shutil.rmtree('DDSConv')
         else:
             # Convert mipmaps to RGBA8
             texmipmaps = []
@@ -2649,7 +2628,6 @@ class MainWindow(QtWidgets.QMainWindow):
         fileMenu.addAction("Open...", self.openTileset, QtGui.QKeySequence.Open)
         fileMenu.addAction("Import Image...", self.openImage, QtGui.QKeySequence('Ctrl+I'))
         fileMenu.addAction("Export Image...", self.saveImage, QtGui.QKeySequence('Ctrl+E'))
-        fileMenu.addAction("Export Image (No Alpha)...", self.saveImageNoAlpha)
         fileMenu.addAction("Import Normal Map...", self.openNml, QtGui.QKeySequence('Ctrl+Shift+I'))
         fileMenu.addAction("Export Normal Map...", self.saveNml, QtGui.QKeySequence('Ctrl+Shift+E'))
         fileMenu.addAction("Save", self.saveTileset, QtGui.QKeySequence.Save)
@@ -2659,10 +2637,8 @@ class MainWindow(QtWidgets.QMainWindow):
         taskMenu = self.menuBar().addMenu("&Tasks")
 
         taskMenu.addAction("Set Tileset Slot...", self.setSlot, QtGui.QKeySequence('Ctrl+T'))
-        taskMenu.addAction("Toggle Alpha", self.toggleNoAlpha, QtGui.QKeySequence('Ctrl+Shift+A'))
         taskMenu.addAction("Toggle Normal Map", self.toggleNormal, QtGui.QKeySequence('Ctrl+Shift+N'))
         taskMenu.addAction("Clear Collision Data", Tileset.clearCollisions, QtGui.QKeySequence('Ctrl+Shift+Backspace'))
-        taskMenu.addAction("Clear Object Data", Tileset.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
 
 
 
@@ -2694,13 +2670,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 cobj += 1
                 crow = 0
                 ctile = 0
-
-
-    def toggleNoAlpha(self):
-        # Replace regular image with no-alpha images in model
-        self.noalpha = not self.noalpha
-
-        self.setuptile()
 
 
     def toggleNormal(self):
@@ -2843,6 +2812,45 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.updateInfo(0, 0)
         self.tileDisplay.update()
+
+
+    def LoadTexture_NSMBU(self, tiledata):
+        tile_path = curr_path
+
+        with open(tile_path + '/texture.gtx', 'wb') as binfile:
+            binfile.write(tiledata)
+
+        data = gtx.readGFD(tiledata) # Read GTX
+
+        if data.format == 0x1A: # for RGBA8, use gtx_extract
+            os.chdir(curr_path)
+            os.system('gtx_extract.exe texture.gtx texture.bmp')
+
+            # Return as a QImage
+            img = QtGui.QImage(tile_path + '/texture.bmp')
+            os.remove(tile_path + '/texture.bmp')
+
+        elif data.format == 0x33: # for DXT5, use Abood's GTX Extractor
+            # Convert to DDS
+            hdr, data2 = gtx.get_deswizzled_data(data)
+            with open(tile_path + '/texture2.dds', 'wb+') as output:
+                output.write(hdr)
+                output.write(data2)
+
+            # Decompress DXT5
+            os.chdir(curr_path)
+            os.system('nvcompress.exe -rgb -nomips -alpha  texture2.dds texture.dds')
+            os.remove(tile_path + '/texture2.dds')
+
+            # Read DDS, return as a QImage
+            with open(tile_path + '/texture.dds', 'rb') as img:
+                imgdata = img.read()[0x80:0x80+(data.dataSize*4)]
+            img = QtGui.QImage(imgdata, data.width, data.height, QtGui.QImage.Format_ARGB32)
+            os.remove(tile_path + '/texture.dds')
+
+        os.remove(tile_path + '/texture.gtx')
+
+        return img
 
 
 
