@@ -4,9 +4,9 @@
 # This is Puzzle 0.6, ported to Python 3 & PyQt5, and then ported to support the New Super Mario Bros. U tileset format.
 # Puzzle 0.6 by Tempus; all improvements for Python 3, PyQt5 and NSMBU by RoadrunnerWMC
 
-import SARC
 import os
 import os.path
+import platform
 import struct
 import sys
 
@@ -14,6 +14,7 @@ from ctypes import create_string_buffer
 from PyQt5 import QtCore, QtGui, QtWidgets
 Qt = QtCore.Qt
 
+import SARC
 
 try:
     import nsmblib
@@ -21,7 +22,8 @@ try:
 except ImportError:
     HaveNSMBLib = False
 
-import gtx_extract as gtx
+if platform.system() == 'Windows':
+    import gtx_extract as gtx
 
 
 ########################################################
@@ -2418,19 +2420,26 @@ class MainWindow(QtWidgets.QMainWindow):
         if isDxt5:
             # Convert mipmaps to DDS
 
+            if platform.system() == 'Windows':
+                tile_path = curr_path + '/Tools'
+            elif platform.system() == 'Linux':
+                tile_path = curr_path + '/linuxTools'
+            elif platform.system() == 'Darwin':
+                tile_path = curr_path + '/macTools'
+
             for i, tex in enumerate(mipmaps):
-                tex.save(curr_path + '/mipmap%s_%d.png' % ('_nml' if normalmap else '', i))
-                os.chdir(curr_path + '')
+                tex.save(tile_path + '/mipmap%s_%d.png' % ('_nml' if normalmap else '', i))
+                os.chdir(tile_path + '')
                 os.system('nvcompress.exe -bc3 -nomips mipmap%s_%d.png ' % ('_nml' if normalmap else '', i)
                           + 'mipmap%s_%d.dds' % ('_nml' if normalmap else '', i))
-                os.chdir(curr_path)
+                os.chdir(tile_path)
 
             ddsmipmaps = []
             for i in range(numMips):
-                with open(curr_path + '/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i), 'rb') as f:
+                with open(tile_path + '/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i), 'rb') as f:
                     ddsmipmaps.append(f.read())
-                os.remove(curr_path + '/mipmap%s_%d.png' % ('_nml' if normalmap else '', i))
-                os.remove(curr_path + '/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i))
+                os.remove(tile_path + '/mipmap%s_%d.png' % ('_nml' if normalmap else '', i))
+                os.remove(tile_path + '/mipmap%s_%d.dds' % ('_nml' if normalmap else '', i))
 
             # Grab the textures from the DDSs
             texmipmaps = []
@@ -2815,38 +2824,67 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def LoadTexture_NSMBU(self, tiledata):
-        tile_path = curr_path
+        if platform.system() == 'Windows':
+            tile_path = curr_path + '/Tools'
+        elif platform.system() == 'Linux':
+            tile_path = curr_path + '/linuxTools'
+        elif platform.system() == 'Darwin':
+            tile_path = curr_path + '/macTools'
 
         with open(tile_path + '/texture.gtx', 'wb') as binfile:
             binfile.write(tiledata)
 
-        data = gtx.readGFD(tiledata) # Read GTX
+        if platform.system() == 'Windows': # Dirty, but works :P
+            data = gtx.readGFD(tiledata) # Read GTX
 
-        if data.format == 0x1A: # for RGBA8, use gtx_extract
+            if data.format == 0x1A: # for RGBA8, use gtx_extract
+                os.chdir(curr_path + '/Tools')
+                os.system('gtx_extract.exe texture.gtx texture.bmp')
+                os.chdir(curr_path)
+
+                # Return as a QImage
+                img = QtGui.QImage(tile_path + '/texture.bmp')
+                os.remove(tile_path + '/texture.bmp')
+
+            elif data.format == 0x33: # for DXT5, use Abood's GTX Extractor
+                # Convert to DDS
+                hdr, data2 = gtx.get_deswizzled_data(data)
+                with open(tile_path + '/texture2.dds', 'wb+') as output:
+                    output.write(hdr)
+                    output.write(data2)
+
+                # Decompress DXT5
+                os.chdir(curr_path + '/Tools')
+                os.system('nvcompress.exe -rgb -nomips -alpha  texture2.dds texture.dds')
+                os.chdir(curr_path)
+                os.remove(tile_path + '/texture2.dds')
+
+                # Read DDS, return as a QImage
+                with open(tile_path + '/texture.dds', 'rb') as img:
+                    imgdata = img.read()[0x80:0x80+(data.dataSize*4)]
+                img = QtGui.QImage(imgdata, data.width, data.height, QtGui.QImage.Format_ARGB32)
+                os.remove(tile_path + '/texture.dds')
+
+        elif platform.system() == 'Linux':
+            os.chdir(curr_path + '/linuxTools')
+            os.system('chmod +x ./gtx_extract.elf')
+            os.system('./gtx_extract.elf texture.gtx texture.bmp')
             os.chdir(curr_path)
-            os.system('gtx_extract.exe texture.gtx texture.bmp')
 
             # Return as a QImage
             img = QtGui.QImage(tile_path + '/texture.bmp')
             os.remove(tile_path + '/texture.bmp')
 
-        elif data.format == 0x33: # for DXT5, use Abood's GTX Extractor
-            # Convert to DDS
-            hdr, data2 = gtx.get_deswizzled_data(data)
-            with open(tile_path + '/texture2.dds', 'wb+') as output:
-                output.write(hdr)
-                output.write(data2)
+        elif platform.system() == 'Darwin':
+            os.system('open -a "' + curr_path + '/macTools/gtx_extract" --args "' + curr_path + '/macTools/texture.gtx" "' + curr_path + '/macTools/texture.bmp"')
 
-            # Decompress DXT5
-            os.chdir(curr_path)
-            os.system('nvcompress.exe -rgb -nomips -alpha  texture2.dds texture.dds')
-            os.remove(tile_path + '/texture2.dds')
+            # Return as a QImage
+            img = QtGui.QImage(tile_path + '/texture.bmp')
+            os.remove(tile_path + '/texture.bmp')
 
-            # Read DDS, return as a QImage
-            with open(tile_path + '/texture.dds', 'rb') as img:
-                imgdata = img.read()[0x80:0x80+(data.dataSize*4)]
-            img = QtGui.QImage(imgdata, data.width, data.height, QtGui.QImage.Format_ARGB32)
-            os.remove(tile_path + '/texture.dds')
+        else:
+            print('Not a supported platform, sadly...')
+            sys.exit(1)
 
         os.remove(tile_path + '/texture.gtx')
 
