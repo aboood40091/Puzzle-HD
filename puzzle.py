@@ -2479,7 +2479,7 @@ class MainWindow(QtWidgets.QMainWindow):
                               + 'mipmap%s_%d.dds' % ('_nml' if normalmap else '', i))
                 elif platform.system() == 'Linux':
                     os.system('chmod +x ' + curr_path + '/linuxTools/nvcompress.elf')
-                    os.system('nvcompress.elf -bc3 -nomips mipmap%s_%d.png ' % ('_nml' if normalmap else '', i)
+                    os.system(curr_path + '/linuxTools/nvcompress.elf -bc3 -nomips mipmap%s_%d.png ' % ('_nml' if normalmap else '', i)
                               + 'mipmap%s_%d.dds' % ('_nml' if normalmap else '', i))
                 elif platform.system() == 'Darwin':
                     os.system('chmod +x ' + curr_path + '/macTools/nvcompress-osx.app')
