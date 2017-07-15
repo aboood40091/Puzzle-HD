@@ -24,9 +24,6 @@ try:
 except ImportError:
     HaveNSMBLib = False
 
-if platform.system() == 'Windows':
-    import gtx_extract as gtx
-
 
 ########################################################
 # To Do:
@@ -3389,57 +3386,28 @@ class MainWindow(QtWidgets.QMainWindow):
         with open(tile_path + '/texture.gtx', 'wb') as binfile:
             binfile.write(tiledata)
 
-        if platform.system() == 'Windows': # Dirty, but works :P
-            data = gtx.readGFD(tiledata) # Read GTX
+        os.chdir(tile_path)
 
-            if data.format == 0x1A: # for RGBA8, use gtx_extract
-                os.chdir(curr_path + '/Tools')
-                os.system('gtx_extract.exe texture.gtx texture.bmp')
-                os.chdir(curr_path)
-
-                # Return as a QImage
-                img = QtGui.QImage(tile_path + '/texture.bmp')
-                os.remove(tile_path + '/texture.bmp')
-
-            elif data.format == 0x33: # for DXT5, use Abood's GTX Extractor
-                # Convert to DDS
-                hdr, data2 = gtx.get_deswizzled_data(data)
-                with open(tile_path + '/texture2.dds', 'wb+') as output:
-                    output.write(hdr)
-                    output.write(data2)
-
-                # Decompress DXT5
-                os.chdir(curr_path + '/Tools')
-                os.system('nvcompress.exe -rgb -nomips -alpha  texture2.dds texture.dds')
-                os.chdir(curr_path)
-                os.remove(tile_path + '/texture2.dds')
-
-                # Read DDS, return as a QImage
-                with open(tile_path + '/texture.dds', 'rb') as img:
-                    imgdata = img.read()[0x80:0x80+(data.dataSize*4)]
-                img = QtGui.QImage(imgdata, data.width, data.height, QtGui.QImage.Format_ARGB32)
-                os.remove(tile_path + '/texture.dds')
+        if platform.system() == 'Windows':
+            os.system('gtx_extract_bmp.exe texture.gtx')
 
         elif platform.system() == 'Linux':
-            os.chdir(curr_path + '/linuxTools')
             os.system('chmod +x ./gtx_extract.elf')
             os.system('./gtx_extract.elf texture.gtx texture.bmp')
-            os.chdir(curr_path)
-
-            # Return as a QImage
-            img = QtGui.QImage(tile_path + '/texture.bmp')
-            os.remove(tile_path + '/texture.bmp')
 
         elif platform.system() == 'Darwin':
-            os.system('open -a "' + curr_path + '/macTools/gtx_extract" --args "' + curr_path + '/macTools/texture.gtx" "' + curr_path + '/macTools/texture.bmp"')
-
-            # Return as a QImage
-            img = QtGui.QImage(tile_path + '/texture.bmp')
-            os.remove(tile_path + '/texture.bmp')
+            os.system('open -a "' + tile_path + '/gtx_extract" --args "' + tile_path + '/texture.gtx" "' + tile_path + '/texture.bmp"')
 
         else:
-            print('Not a supported platform, sadly...')
-            sys.exit(1)
+            warningBox = QtWidgets.QMessageBox(QtWidgets.QMessageBox.NoIcon, 'OH NO', 'Not a supported platform, sadly...')
+            warningBox.exec_()
+            return
+
+        os.chdir(curr_path)
+
+        # Return as a QImage
+        img = QtGui.QImage(tile_path + '/texture.bmp')
+        os.remove(tile_path + '/texture.bmp')
 
         os.remove(tile_path + '/texture.gtx')
 
