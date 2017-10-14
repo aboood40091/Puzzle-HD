@@ -465,7 +465,7 @@ class paletteWidget(QtWidgets.QWidget):
         L = QtWidgets.QVBoxLayout(self.collsGroup)
         L.addWidget(self.collsType)
 
-        self.collsTypes = [['No Solidity', QtGui.QIcon()],
+        self.collsTypes = [['No Solidity', QtGui.QIcon(path + 'Collisions/NoSolidity.png')],
                            ['Solid', QtGui.QIcon(path + 'Collisions/Solid.png')],
                            ['Solid-on-Top', QtGui.QIcon(path + 'Collisions/SolidOnTop.png')],
                            ['Solid-on-Bottom', QtGui.QIcon(path + 'Collisions/SolidOnBottom.png')],
@@ -661,8 +661,8 @@ class objectList(QtWidgets.QListView):
         self.setMovement(QtWidgets.QListView.Static)
         self.setBackgroundRole(QtGui.QPalette.BrightText)
         self.setWrapping(False)
-        self.setMinimumHeight(150)
-        self.setMaximumHeight(150)
+        self.setMinimumHeight(140)
+        self.setMaximumHeight(140)
 
 
 
@@ -705,8 +705,8 @@ class displayWidget(QtWidgets.QListView):
     def __init__(self, parent=None):
         super(displayWidget, self).__init__(parent)
 
-        self.setMinimumWidth(448)
-        self.setMaximumWidth(448)
+        self.setMinimumWidth(424)
+        self.setMaximumWidth(424)
         self.setMinimumHeight(404)
         self.setDragEnabled(True)
         self.setViewMode(QtWidgets.QListView.IconMode)
@@ -769,7 +769,13 @@ class displayWidget(QtWidgets.QListView):
                 elif curTile.byte5 == 5:    # Grass
                     colour = QtGui.QColor(0, 255, 0, 120)
 
-                style = Qt.SolidPattern
+                # Sets Brush style for fills
+                if curTile.byte0 in [14, 20, 21]:  # Climbing Grid
+                    style = Qt.DiagCrossPattern
+                elif curTile.byte0 in [5, 6, 7]:  # Breakable
+                    style = Qt.Dense5Pattern
+                else:
+                    style = Qt.SolidPattern
 
 
                 brush = QtGui.QBrush(colour, style)
@@ -936,8 +942,8 @@ class displayWidget(QtWidgets.QListView):
                     painter.drawPolygon(QtGui.QPolygon([QtCore.QPoint(x + 15, y),
                                                         QtCore.QPoint(x + 15, y + 12),
                                                         QtCore.QPoint(x + 18, y + 12),
-                                                        QtCore.QPoint(x + 12, y + 41),
-                                                        QtCore.QPoint(x + 15, y + 12),
+                                                        QtCore.QPoint(x + 12, y + 17),
+                                                        QtCore.QPoint(x + 6, y + 12),
                                                         QtCore.QPoint(x + 9, y + 12),
                                                         QtCore.QPoint(x + 9, y)]))
 
@@ -965,26 +971,6 @@ class displayWidget(QtWidgets.QListView):
                             painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'Spikes/SpikeRight.png'))
                         elif curTile.byte2 == 0x5:
                             painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'Spikes/Spike.png'))
-
-                elif curTile.byte0 == 9999: # QBlock
-                    if curTile.byte7 == 0:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/FireF.png'))
-                    if curTile.byte7 == 1:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Star.png'))
-                    if curTile.byte7 == 2:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Coin.png'))
-                    if curTile.byte7 == 3:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Vine.png'))
-                    if curTile.byte7 == 4:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/1up.png'))
-                    if curTile.byte7 == 5:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Mini.png'))
-                    if curTile.byte7 == 6:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Prop.png'))
-                    if curTile.byte7 == 7:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Peng.png'))
-                    if curTile.byte7 == 8:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/IceF.png'))
 
                 elif curTile.byte0 == 3: # Coin
                     if curTile.byte2 == 0:
@@ -2821,8 +2807,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 tile = []
                 tile.append(byte)
                 tile.append(freeTiles[i]); i += 1
-                slot = Tileset.slot
-                tile.append(slot)
+                byte2 = (struct.unpack_from('>B', objstrings, offset + 2)[0]) & 0xFC
+                byte2 |= Tileset.slot
+                tile.append(byte2)
 
                 tilelist[-1].append(tile)
 
