@@ -3084,9 +3084,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
             Tilebuffer = b''
 
-            print(object.randLen)
-            print((object.width, object.height))
-
             for i in range(len(object.tiles)):
                 for tile in object.tiles[i]:
                     if object.randLen and (object.width, object.height) == (1, 1):
