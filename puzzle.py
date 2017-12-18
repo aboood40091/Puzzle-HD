@@ -36,6 +36,7 @@ import SARC
 
 
 Tileset = None
+PuzzleVersion = '2.5'
 
 curr_path = os.path.dirname(os.path.realpath(sys.argv[0])).replace("\\", "/")
 
@@ -699,8 +700,8 @@ class displayWidget(QtWidgets.QListView):
     def __init__(self, parent=None):
         super(displayWidget, self).__init__(parent)
 
-        self.setMinimumWidth(424)
-        self.setMaximumWidth(424)
+        self.setMinimumWidth(426)
+        self.setMaximumWidth(426)
         self.setMinimumHeight(404)
         self.setDragEnabled(True)
         self.setViewMode(QtWidgets.QListView.IconMode)
@@ -2002,7 +2003,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed,
                 QtWidgets.QSizePolicy.Fixed))
-        self.setWindowTitle("New Tileset")
 
 
     def setuptile(self):
@@ -2020,7 +2020,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def newTileset(self):
         '''Creates a new, blank tileset'''
 
-        global Tileset
+        global Tileset, PuzzleVersion
         Tileset.clear()
         Tileset = TilesetClass()
 
@@ -2037,7 +2037,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
 
-        self.setWindowTitle('New Tileset')
+        self.setWindowTitle('New Tileset - Puzzle NSMBU v%s' % PuzzleVersion)
 
         self.objectList.update()
         self.tileWidget.update()
@@ -2050,7 +2050,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     "All files (*)")[0]
 
         if not path: return
-        self.setWindowTitle(os.path.basename(path))
+        self.setWindowTitle(os.path.basename(path) + ' - Puzzle NSMBU v%s' % PuzzleVersion)
         Tileset.clear()
 
         name = '.'.join(os.path.basename(path).split('.')[:-1])
@@ -2303,7 +2303,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if fn == '': return
 
         self.name = fn
-        self.setWindowTitle(os.path.basename(str(fn)))
+        self.setWindowTitle(os.path.basename(str(fn)) + ' - Puzzle NSMBU v%s' % PuzzleVersion)
 
         outdata = self.saving(os.path.basename(str(fn)))
         with open(fn, 'wb') as f:
@@ -2456,19 +2456,22 @@ class MainWindow(QtWidgets.QMainWindow):
             os.remove(tile_path + '/tmp.png')
 
         else:  # Save as RGBA8
-            import dds
-
             data = tex.bits()
             data.setsize(tex.byteCount())
             data = data.asstring()
 
+            import dds
+
             with open(tile_path + '/tmp.dds', 'wb+') as out:
-                hdr = dds.generateRGBA8Header(2048, 512)
+                hdr = dds.generateHeader(2048, 512, 0x1a)
                 out.write(hdr)
                 out.write(data)
 
+            del dds
+
         import gtx
         gtxdata = gtx.DDStoGTX(tile_path + '/tmp.dds')
+        del gtx
 
         os.remove(tile_path + '/tmp.dds')
 
@@ -3399,6 +3402,10 @@ class MainWindow(QtWidgets.QMainWindow):
             curTile.byte3 = palette.parameters2.currentIndex()
 
         curTile.byte4 = palette.collsType.currentIndex()
+
+        if curTile.byte4 in [4, 5]:
+            curTile.byte4 += 0x1D
+
         curTile.byte5 = palette.terrainType.currentIndex()
         curTile.byte6 = 0
         curTile.byte7 = 0

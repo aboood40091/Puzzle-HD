@@ -6,7 +6,7 @@
 # MalStar1000, RoadrunnerWMC, MrRean, Grop, AboodXD, Gota7
 
 # dds.py
-# A small script for reading RGBA8 and DXT5 DDS files.
+# A small script for reading/writing RGBA8 and DXT5 DDS files.
 
 
 ################################################################
@@ -63,15 +63,12 @@ def get_mipSize(width, height, bpp, numMips, compressed):
     return size
 
 
-def generateRGBA8Header(w, h, num_mipmaps=1):
+def generateHeader(w, h, fmt, num_mipmaps=1):
+    compressed = fmt & 0xFF == 0x33
+
     hdr = bytearray(128)
 
-    rmask = 0x000000ff
-    gmask = 0x0000ff00
-    bmask = 0x00ff0000
-    amask = 0xff000000
-
-    flags = 0x00000001 | 0x00001000 | 0x00000004 | 0x00000002 | 0x00000008
+    flags = 0x00000001 | 0x00001000 | 0x00000004 | 0x00000002
 
     caps = 0x00001008
 
@@ -82,7 +79,17 @@ def generateRGBA8Header(w, h, num_mipmaps=1):
         flags |= 0x00020000
         caps |= 0x00000008 | 0x00400000
 
-    size = w * 4
+    if not compressed:
+        flags |= 0x00000008
+        pflags = 0x00000041
+
+        size = w * 4
+
+    else:
+        flags |= 0x00080000
+        pflags = 0x00000004
+
+        size = ((w + 3) // 4) * ((h + 3) // 4) * 16
 
     hdr[0:0 + 4] = b'DDS '
     hdr[4:4 + 4] = b'|\x00\x00\x00'
@@ -92,12 +99,19 @@ def generateRGBA8Header(w, h, num_mipmaps=1):
     hdr[20:20 + 4] = size.to_bytes(4, 'little')
     hdr[28:28 + 4] = num_mipmaps.to_bytes(4, 'little')
     hdr[76:76 + 4] = b' \x00\x00\x00'
-    hdr[80:80 + 4] = b'A\x00\x00\x00'
-    hdr[88:88 + 4] = b' \x00\x00\x00'
-    hdr[92:92 + 4] = b'\xff\x00\x00\x00'
-    hdr[96:96 + 4] = b'\x00\xff\x00\x00'
-    hdr[100:100 + 4] = b'\x00\x00\xff\x00'
-    hdr[104:104 + 4] = b'\x00\x00\x00\xff'
+    hdr[80:80 + 4] = pflags.to_bytes(4, 'little')
+
+    if compressed:
+        hdr[84:84 + 4] = b'DXT5'
+
+    else:
+        hdr[88:88 + 4] = b' \x00\x00\x00'
+
+        hdr[92:92 + 4] = b'\xff\x00\x00\x00'
+        hdr[96:96 + 4] = b'\x00\xff\x00\x00'
+        hdr[100:100 + 4] = b'\x00\x00\xff\x00'
+        hdr[104:104 + 4] = b'\x00\x00\x00\xff'
+
     hdr[108:108 + 4] = caps.to_bytes(4, 'little')
 
     return hdr
