@@ -2432,7 +2432,7 @@ class MainWindow(QtWidgets.QMainWindow):
             elif platform.system() == 'Linux':
                 tile_path = curr_path + '/linuxTools'
 
-            if idx != 0:  # Save as DXT5/BC3
+            if Tileset.slot != 0:  # Save as DXT5/BC3
                 tex.save(tile_path + '/tmp.png')
             
                 os.chdir(tile_path)
@@ -2477,7 +2477,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             dataList = []
 
-            if idx != 0:  # Save as DXT5/BC3
+            if Tileset.slot != 0:  # Save as DXT5/BC3
                 fmt = 0x33
                 numMips = 12
 
