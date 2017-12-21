@@ -2424,48 +2424,96 @@ class MainWindow(QtWidgets.QMainWindow):
         painter.end()
 
         # Generate a GTX file from a QImage
-        if platform.system() == 'Windows':
-            tile_path = curr_path + '/Tools'
+        # use nvcompress to compress as BC3 on Windows and Linux
+        if platform.system() in ['Windows', 'Linux']:
+            if platform.system() == 'Windows':
+                tile_path = curr_path + '/Tools'
 
-        elif platform.system() == 'Linux':
-            tile_path = curr_path + '/linuxTools'
+            elif platform.system() == 'Linux':
+                tile_path = curr_path + '/linuxTools'
 
+            if idx != 0:  # Save as DXT5/BC3
+                tex.save(tile_path + '/tmp.png')
+            
+                os.chdir(tile_path)
+
+                if platform.system() == 'Windows':
+                    exe = 'nvcompress.exe'
+
+                elif platform.system() == 'Linux':
+                    os.system('chmod +x nvcompress.elf')
+                    exe = './nvcompress.elf'
+
+                os.system(exe + ' -bc3 tmp.png tmp.dds')
+            
+                os.chdir(curr_path)
+
+                os.remove(tile_path + '/tmp.png')
+
+            else:  # Save as RGBA8
+                import dds
+
+                data = tex.bits()
+                data.setsize(tex.byteCount())
+                data = data.asstring()
+
+                with open(tile_path + '/tmp.dds', 'wb+') as out:
+                    hdr = dds.generateHeader(2048, 512, 0x1a)
+                    out.write(hdr)
+                    out.write(data)
+
+                del dds
+
+        # nvcompress doesn't want to work on MacOSX
+        # so let's use a local BC3 compressor (lossy)
         elif platform.system() == 'Darwin':
             tile_path = curr_path + '/macTools'
 
-        if Tileset.slot != 0:  # Save as DXT5/BC3
-            tex.save(tile_path + '/tmp.png')
-        
-            os.chdir(tile_path)
+            import dds
 
-            if platform.system() == 'Windows':
-                exe = 'nvcompress.exe'
-
-            elif platform.system() == 'Linux':
-                os.system('chmod +x nvcompress.elf')
-                exe = './nvcompress.elf'
-
-            elif platform.system() == 'Darwin':
-                os.system('chmod 777 nvcompress-osx.app')
-                exe = './nvcompress-osx.app'
-
-            os.system(exe + ' -bc3 tmp.png tmp.dds')
-            
-            os.chdir(curr_path)
-
-            os.remove(tile_path + '/tmp.png')
-
-        else:  # Save as RGBA8
             data = tex.bits()
             data.setsize(tex.byteCount())
             data = data.asstring()
 
-            import dds
+            dataList = []
+
+            if idx != 0:  # Save as DXT5/BC3
+                fmt = 0x33
+                numMips = 12
+
+                try:
+                    import pyximport
+
+                    pyximport.install()
+                    import compressBC3_cy as compressBC3
+                except ImportError:
+                    import compressBC3
+
+                dataList.append(compressBC3.CompressBC3(data, tex.bytesPerLine(), 2048, 512))
+
+                for i in range(1, numMips):
+                    mipTex = QtGui.QImage(tex).scaledToWidth(max(1, 2048 >> i), Qt.SmoothTransformation)
+                    mipTex = mipTex.convertToFormat(QtGui.QImage.Format_RGBA8888)
+
+                    mipData = mipTex.bits()
+                    mipData.setsize(mipTex.byteCount())
+                    mipData = mipData.asstring()
+
+                    dataList.append(compressBC3.CompressBC3(mipData, mipTex.bytesPerLine(), max(1, 2048 >> i), max(1, 512 >> i)))
+
+                del compressBC3
+
+            else:  # Save as RGBA8
+                fmt = 0x1a
+                numMips = 1
+
+                dataList.append(data)
 
             with open(tile_path + '/tmp.dds', 'wb+') as out:
-                hdr = dds.generateHeader(2048, 512, 0x1a)
+                hdr = dds.generateHeader(2048, 512, fmt, numMips)
                 out.write(hdr)
-                out.write(data)
+                for data in dataList:
+                    out.write(data)
 
             del dds
 
