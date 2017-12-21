@@ -1,6 +1,8 @@
 from cx_Freeze import setup, Executable
 import os, os.path, shutil, sys
 
+from puzzle import PuzzleVersion
+
 upxFlag = False
 if '-upx' in sys.argv:
     sys.argv.remove('-upx')
@@ -8,7 +10,7 @@ if '-upx' in sys.argv:
 
 dir = 'distrib/windows'
 
-print('[[ Running Puzzle HD through cx_Freeze! ]]')
+print('[[ Running Puzzle NSMBU through cx_Freeze! ]]')
 print('>> Destination directory: %s' % dir)
 
 if 'build' not in sys.argv:
@@ -26,20 +28,20 @@ excludes = ['doctest', 'pdb', 'unittest', 'difflib', 'inspect',
 # set it up
 base = 'Win32GUI' if sys.platform == 'win32' else None
 setup(
-    name='Puzzle HD',
-    version='1.0',
-    description='Puzzle HD - New Super Mario Bros. U Tileset Editor',
+    name='Puzzle NSMBU',
+    version=PuzzleVersion,
+    description='Puzzle NSMBU - New Super Mario Bros. U Tileset Editor',
     options={
         'build_exe': {
             'excludes': excludes,
             'packages': ['sip', 'encodings', 'encodings.hex_codec', 'encodings.utf_8'],
-            'compressed': 1,
             'build_exe': dir,
+            'icon': 'icon.ico',
             },
         },
     executables = [
         Executable(
-            'puzzlehd.py',
+            'puzzle.py',
             base = base,
             ),
         ],
@@ -67,10 +69,10 @@ if upxFlag:
               'this folder.')
 
 if os.path.isdir(dir + '/Icons'): shutil.rmtree(dir + '/Icons')
-if os.path.isdir(dir + '/nsmblib-0.5a'): shutil.rmtree(dir + '/nsmblib-0.5a')
+if os.path.isdir(dir + '/Tools'): shutil.rmtree(dir + '/Tools')
 shutil.copytree('Icons', dir + '/Icons')
-if os.path.isdir('nsmblib-0.5a'): shutil.copytree('nsmblib-0.5a', dir + '/nsmblib-0.5a')
-shutil.copy('readme.txt', dir)
+shutil.copytree('Tools', dir + '/Tools')
+shutil.copy('readme.md', dir)
 shutil.copy('license.txt', dir)
 
 print('>> Attempting to copy VC++2008 libraries...')
@@ -83,4 +85,4 @@ else:
     print('>> In order to automatically include the runtimes, place the '\
           'Microsoft.VC90.CRT folder into this folder.')
 
-print('>> Puzzle HD has been frozen to %s!' % dir)
+print('>> Puzzle NSMBU has been frozen to %s!' % dir)
