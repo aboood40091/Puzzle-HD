@@ -3483,7 +3483,7 @@ class MainWindow(QtWidgets.QMainWindow):
             os.system('./gtx_extract.elf texture.gtx texture.bmp')
 
         elif platform.system() == 'Darwin':
-            os.system('open -a "' + tile_path + '/gtx_extract" --args "' + tile_path + '/texture.gtx" "' + tile_path + '/texture.bmp"')
+            os.system(tile_path + '/gtx_extract_bmp texture.gtx')
 
         else:
             warningBox = QtWidgets.QMessageBox(QtWidgets.QMessageBox.NoIcon, 'OH NO', 'Not a supported platform, sadly...')
