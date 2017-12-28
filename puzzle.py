@@ -2188,15 +2188,20 @@ class MainWindow(QtWidgets.QMainWindow):
             upperslope = [0, 0]
             lowerslope = [0, 0]
 
-        # Get the first most repeated slot incase not all the tiles use the same slot
+        # Get the first most repeated slot (that isn't 0) incase not all the tiles use the same slot
         slots = []
         for object in Tileset.objects:
             for row in object.tiles:
                 for tile in row:
-                    slots.append(tile[2] & 3)
+                    if tile[2] & 3:
+                        slots.append(tile[2] & 3)
 
-        data = Counter(slots)
-        Tileset.slot = max(slots, key=data.get)
+        if slots:
+            data = Counter(slots)
+            Tileset.slot = max(slots, key=data.get)
+
+        else:
+            Tileset.slot = 0
 
         self.tileWidget.tilesetType.setText('Pa%d' % Tileset.slot)
 
@@ -2677,9 +2682,7 @@ class MainWindow(QtWidgets.QMainWindow):
         item, ok = QtWidgets.QInputDialog.getItem(self, "Set Tileset Slot",
                 "Warning: \n    Setting the tileset slot will override any \n    tiles set to draw from other tilesets.\n\nCurrent slot is Pa%d" % Tileset.slot, items, 0, False)
         if ok and item:
-            Tileset.slot = int(item[2])
             self.tileWidget.tilesetType.setText(item)
-
 
             cobj = 0
             crow = 0
@@ -2688,13 +2691,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 for row in object.tiles:
                     for tile in row:
                         if tile[2] & 3 or not Tileset.slot:
-                            Tileset.objects[cobj].tiles[crow][ctile] = (tile[0], tile[1], (tile[2] & 0xFC) | int(str(item[2])))
+                            Tileset.objects[cobj].tiles[crow][ctile] = (tile[0], tile[1], (tile[2] & 0xFC) | int(item[2]))
                         ctile += 1
                     crow += 1
                     ctile = 0
                 cobj += 1
                 crow = 0
                 ctile = 0
+
+            Tileset.slot = int(item[2])
 
 
     def toggleNormal(self):
