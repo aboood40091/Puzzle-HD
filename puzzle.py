@@ -37,7 +37,7 @@ import SARC
 
 
 Tileset = None
-PuzzleVersion = '2.6'
+PuzzleVersion = '2.7'
 
 curr_path = os.path.dirname(os.path.realpath(sys.argv[0])).replace("\\", "/")
 
